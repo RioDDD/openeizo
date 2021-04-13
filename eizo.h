@@ -6,7 +6,7 @@
 #define USB_PRODUCT_ID_EIZO_EV2760 0x4059
 #define USB_PRODUCT_ID_EIZO_EV2785 0x4036
 #define USB_PRODUCT_ID_EIZO_EV3237 0x4000
-
+#define USB_PRODUCT_ID_EIZO_EV2460 0x405b
 /*
  *  Usages
  *  These appear to be 'standard' hid usages where bytes 1 and 2 are the usage page

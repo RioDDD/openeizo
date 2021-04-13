@@ -16,6 +16,12 @@
 
 #include "eizo.h"
 
+#define DEBUG
+#ifdef DEBUG
+#define dbg_print(fmt, ...) printk(KERN_ALERT "EIZO_%s: " fmt "\n", __FUNCTION__, ##__VA_ARGS__)
+#else
+#define dbg_print(fmt, ...)
+#endif
 
 static int eizo_set_value(struct hid_device *hdev, int usage, int value) {
     struct eizo_data *data;
@@ -119,19 +125,37 @@ static int eizo_get_value(struct hid_device *hdev, int usage, int *value) {
     return 0;
 }
 
+static int to_usage(const char* attr_name)
+{
+    if (strcmp(attr_name, "brightness") == 0)
+        return EIZO_USAGE_BRIGHTNESS;
+    else if (strcmp(attr_name, "power") == 0)
+        return EIZO_USAGE_POWER;
+    else if (strcmp(attr_name, "gamma") == 0)
+        return EIZO_USAGE_GAMMA;
+    else if (strcmp(attr_name, "profile") == 0)
+        return EIZO_USAGE_PROFILE;
+    else
+        return -1;
+}
 
-static ssize_t eizo_attr_store_brightness(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {
+static ssize_t eizo_attr_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {
     struct hid_device *hdev;
-    int value, res;
+    int value, res, usage;
 
     res = kstrtoint(buf, 10, &value);
     if (res < 0) {
         return -EINVAL;
     }
-    value = clamp(value, 0, 200);
+    //value = clamp(value, 0, 200);
+
+    usage = to_usage(attr->attr.name);
+    if (usage < 0) {
+        return -EINVAL;
+    }
 
     hdev = to_hid_device(dev);
-    res = eizo_set_value(hdev, EIZO_USAGE_BRIGHTNESS, value);
+    res = eizo_set_value(hdev, usage, value);
     if (res < 0) {
         return -EPERM;
     }
@@ -139,12 +163,17 @@ static ssize_t eizo_attr_store_brightness(struct device *dev, struct device_attr
     return count;
 }
 
-static ssize_t eizo_attr_show_brightness(struct device *dev, struct device_attribute *attr, char *buf) {
+static ssize_t eizo_attr_show(struct device *dev, struct device_attribute *attr, char *buf) {
     struct hid_device *hdev;
-    int value, ret;
+    int value, ret, usage;
 
+    usage = to_usage(attr->attr.name);
+    if (usage < 0) {
+        return -EINVAL;
+    }
+    
     hdev = to_hid_device(dev);
-    ret = eizo_get_value(hdev, EIZO_USAGE_BRIGHTNESS, &value);
+    ret = eizo_get_value(hdev, usage, &value);
     if (ret < 0) {
         return -ENODATA;
     }
@@ -152,11 +181,16 @@ static ssize_t eizo_attr_show_brightness(struct device *dev, struct device_attri
     return sprintf(buf, "%d\n", value);
 }
 
-
-static DEVICE_ATTR(brightness, 0664, eizo_attr_show_brightness, eizo_attr_store_brightness);
+static DEVICE_ATTR(brightness, 0664, eizo_attr_show, eizo_attr_store);
+static DEVICE_ATTR(power, 0664, eizo_attr_show, eizo_attr_store);
+static DEVICE_ATTR(gamma, 0664, eizo_attr_show, eizo_attr_store);
+static DEVICE_ATTR(profile, 0664, eizo_attr_show, eizo_attr_store);
 
 static struct attribute *eizo_attrs[] = {
         &dev_attr_brightness.attr,
+        &dev_attr_power.attr,
+        &dev_attr_gamma.attr,
+        &dev_attr_profile.attr,
         NULL
 };
 
@@ -236,6 +270,7 @@ static const struct hid_device_id eizo_hid_driver_id_table[] = {
         // Known PIDs of monitors which have not been tested.
         // { HID_USB_DEVICE(USB_VENDOR_ID_EIZO, USB_PRODUCT_ID_EIZO_EV2785) },
         // { HID_USB_DEVICE(USB_VENDOR_ID_EIZO, USB_PRODUCT_ID_EIZO_EV3237) },
+        { HID_USB_DEVICE(USB_VENDOR_ID_EIZO, USB_PRODUCT_ID_EIZO_EV2460) },
         { }
 };
 
